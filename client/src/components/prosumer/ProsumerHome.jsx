@@ -1,555 +1,573 @@
 import React, { useState, useEffect } from 'react'
-import ProsumerNavbar from './ProsumerNavbar'
+import ProsumerNavbar from '../prosumer/ProsumerNavbar'
 import { Link } from 'react-router-dom'
-import { 
-  ShoppingCart, 
-  Zap, 
-  TrendingUp,
-  TrendingDown,
-  Clock, 
-  Battery, 
-  DollarSign,
-  ArrowRight,
-  Sun,
-  CheckCircle,
-  Activity,
-  Package,
-  Upload,
-  Download,
-  Eye,
-  Edit,
-  Plus
+import axiosInstance from '../../axiosInstance'
+import { useSocket } from '../../hooks/useSocket'
+import {
+  ShoppingCart, Zap, TrendingUp, TrendingDown, Clock,
+  Battery, DollarSign, ArrowRight, Sun, CheckCircle,
+  Activity, Package, Upload, Download, Plus, RefreshCw
 } from 'lucide-react'
 
-const ProsumerHome = () => {
-  const [currentTime, setCurrentTime] = useState(new Date())
-  const [activeTab, setActiveTab] = useState('overview')
+export default function ProsumerHome() {
+  const socket = useSocket()
+  const user   = JSON.parse(localStorage.getItem('user') || '{}')
 
-  // Sample data - replace with actual API calls
-  const userData = {
-    name: 'Aravindh Prabu',
-    accountType: 'Solar Prosumer',
-    // Production data
-    currentProduction: '8.5',
-    totalProduced: '1,250',
-    surplus: '320',
-    totalSold: '280',
-    // Consumption data
-    currentConsumption: '3.2',
-    totalPurchased: '150',
-    // Financial data
-    earnings: '₹12,450',
-    expenses: '₹3,200',
-    netBalance: '₹9,250',
-    // Stats
-    activeSales: 5,
-    activePurchases: 2,
-    completedTransactions: 45,
-    carbonOffset: '425'
-  }
+  const [currentTime, setCurrentTime]       = useState(new Date())
+  const [activeTab, setActiveTab]           = useState('overview')
+  const [profile, setProfile]               = useState(null)
+  const [myListings, setMyListings]         = useState([])
+  const [salesTrades, setSalesTrades]       = useState([])   // trades where I was seller
+  const [purchaseTrades, setPurchaseTrades] = useState([])   // trades where I was buyer
+  const [featuredListings, setFeaturedListings] = useState([])
+  const [activeBids, setActiveBids]         = useState([])
+  const [loading, setLoading]               = useState(true)
+  const [toast, setToast]                   = useState(null)
 
-  const myListings = [
-    {
-      id: 'LIST-2024-001',
-      amount: '50 kWh',
-      price: '₹8.5/kWh',
-      total: '₹425',
-      status: 'Active',
-      views: 23,
-      date: '10 Jan 2026'
-    },
-    {
-      id: 'LIST-2024-002',
-      amount: '75 kWh',
-      price: '₹9.0/kWh',
-      total: '₹675',
-      status: 'Active',
-      views: 18,
-      date: '12 Jan 2026'
-    },
-    {
-      id: 'LIST-2024-003',
-      amount: '40 kWh',
-      price: '₹8.2/kWh',
-      total: '₹328',
-      status: 'Sold',
-      views: 35,
-      date: '08 Jan 2026'
-    }
-  ]
-
-  const recentTransactions = [
-    {
-      id: 'TXN-2024-045',
-      type: 'sale',
-      party: 'Consumer - Rahul Kumar',
-      amount: '40 kWh',
-      price: '₹328',
-      status: 'Completed',
-      date: '13 Jan 2026'
-    },
-    {
-      id: 'TXN-2024-044',
-      type: 'purchase',
-      party: 'Wind Power Co.',
-      amount: '25 kWh',
-      price: '₹225',
-      status: 'Completed',
-      date: '12 Jan 2026'
-    },
-    {
-      id: 'TXN-2024-043',
-      type: 'sale',
-      party: 'Consumer - Priya Singh',
-      amount: '60 kWh',
-      price: '₹510',
-      status: 'In Progress',
-      date: '11 Jan 2026'
-    },
-    {
-      id: 'TXN-2024-042',
-      type: 'purchase',
-      party: 'Solar Valley Farms',
-      amount: '30 kWh',
-      price: '₹255',
-      status: 'In Progress',
-      date: '10 Jan 2026'
-    }
-  ]
-
-  const marketplaceOffers = [
-    {
-      id: 1,
-      seller: 'WindTech Solutions',
-      type: 'Wind',
-      available: '150 kWh',
-      price: '₹9.0/kWh',
-      rating: 4.6,
-      image: 'https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?w=400&h=300&fit=crop'
-    },
-    {
-      id: 2,
-      seller: 'Hydro Power Inc',
-      type: 'Hydro',
-      available: '100 kWh',
-      price: '₹7.8/kWh',
-      rating: 4.9,
-      image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=300&fit=crop'
-    },
-    {
-      id: 3,
-      seller: 'Green Energy Hub',
-      type: 'Solar',
-      available: '200 kWh',
-      price: '₹8.3/kWh',
-      rating: 4.7,
-      image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=300&fit=crop'
-    }
-  ]
-
+  // Clock
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
+    const t = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(t)
   }, [])
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'Completed': return 'bg-green-100 text-green-700'
-      case 'Active': return 'bg-blue-100 text-blue-700'
-      case 'In Progress': return 'bg-yellow-100 text-yellow-700'
-      case 'Sold': return 'bg-purple-100 text-purple-700'
-      default: return 'bg-gray-100 text-gray-700'
+  useEffect(() => { fetchAll() }, [])
+
+  // Socket — live notifications
+  useEffect(() => {
+    if (!socket) return
+    socket.on('trade:matched', ({ message }) => {
+      showToast(message, 'success')
+      fetchAll()
+    })
+    socket.on('auction:cleared', () => {
+      fetchAll()
+    })
+    socket.on('listing:new', () => fetchFeatured())
+    return () => {
+      socket.off('trade:matched')
+      socket.off('auction:cleared')
+      socket.off('listing:new')
+    }
+  }, [socket])
+
+  const fetchAll = async () => {
+    await Promise.all([
+      fetchProfile(),
+      fetchListings(),
+      fetchSalesTrades(),
+      fetchPurchaseTrades(),
+      fetchFeatured(),
+      fetchActiveBids(),
+    ])
+    setLoading(false)
+  }
+
+  const fetchProfile = async () => {
+    try {
+      const res = await axiosInstance.get(`/prosumer/profile/${user.id}`)
+      setProfile(res.data.prosumer)
+    } catch (err) { console.error(err) }
+  }
+
+  const fetchListings = async () => {
+    try {
+      const res = await axiosInstance.get(`/listings/my/${user.id}`)
+      setMyListings(res.data.listings)
+    } catch (err) { console.error(err) }
+  }
+
+  const fetchSalesTrades = async () => {
+    try {
+      const res = await axiosInstance.get(`/trades/prosumer/${user.id}`)
+      setSalesTrades(res.data.trades)
+    } catch (err) { console.error(err) }
+  }
+
+  const fetchPurchaseTrades = async () => {
+    try {
+      const res = await axiosInstance.get(`/trades/consumer/${user.id}`)
+      setPurchaseTrades(res.data.trades)
+    } catch (err) { console.error(err) }
+  }
+
+  const fetchFeatured = async () => {
+    try {
+      const res = await axiosInstance.get('/listings')
+      // Exclude own listings from featured
+      setFeaturedListings(
+        res.data.listings.filter(l => l.prosumerId !== user.id).slice(0, 3)
+      )
+    } catch (err) { console.error(err) }
+  }
+
+  const fetchActiveBids = async () => {
+    try {
+      const res = await axiosInstance.get(`/bids/my/${user.id}`)
+      setActiveBids(res.data.bids.filter(b => ['pending', 'partially_filled'].includes(b.status)))
+    } catch (err) { console.error(err) }
+  }
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 4000)
+  }
+
+  // ── Derived stats ──────────────────────────────────────────────
+  const totalEarned      = salesTrades.reduce((s, t) => s + t.totalAmount, 0)
+  const totalSpent       = purchaseTrades.reduce((s, t) => s + t.totalAmount, 0)
+  const netBalance       = totalEarned - totalSpent
+  const totalKwhSold     = salesTrades.reduce((s, t) => s + t.quantity, 0)
+  const totalKwhBought   = purchaseTrades.reduce((s, t) => s + t.quantity, 0)
+  const completedTrades  = [...salesTrades, ...purchaseTrades].filter(t => t.status === 'matched').length
+  const activeListings   = myListings.filter(l => ['active', 'partially_filled'].includes(l.status))
+  const carbonOffset     = (totalKwhSold * 0.82).toFixed(0)
+
+  // Merge and sort all trades for the overview tab
+  const allTrades = [
+    ...salesTrades.map(t => ({ ...t, tradeType: 'sale' })),
+    ...purchaseTrades.map(t => ({ ...t, tradeType: 'purchase' })),
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6)
+
+  const SOURCE_IMAGES = {
+    Solar:   'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=400&h=300&fit=crop',
+    Wind:    'https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?w=400&h=300&fit=crop',
+    Hydro:   'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=300&fit=crop',
+    Biomass: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=300&fit=crop',
+  }
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'active':           return 'bg-blue-100 text-blue-700'
+      case 'partially_filled': return 'bg-yellow-100 text-yellow-700'
+      case 'fulfilled':        return 'bg-purple-100 text-purple-700'
+      case 'matched':          return 'bg-green-100 text-green-700'
+      case 'cancelled':        return 'bg-red-100 text-red-600'
+      default:                 return 'bg-gray-100 text-gray-600'
     }
   }
 
   const getStatusIcon = (status) => {
-    switch(status) {
-      case 'Completed': return <CheckCircle size={16} />
-      case 'Active': return <Activity size={16} />
-      case 'In Progress': return <Clock size={16} />
-      case 'Sold': return <Package size={16} />
-      default: return <Package size={16} />
+    switch (status) {
+      case 'active':           return <Activity size={13} />
+      case 'matched':          return <CheckCircle size={13} />
+      case 'partially_filled': return <Clock size={13} />
+      default:                 return <Package size={13} />
     }
+  }
+
+  if (loading) {
+    return (
+      <>
+        <ProsumerNavbar />
+        <div className="mt-20 min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-green-50">
+          <div className="flex flex-col items-center gap-4">
+            <svg className="animate-spin h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <p className="text-gray-500 font-medium">Loading your dashboard...</p>
+          </div>
+        </div>
+      </>
+    )
   }
 
   return (
     <>
       <ProsumerNavbar />
-      <div className='mt-20 min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50'>
-        <div className='max-w-7xl mx-auto px-4 py-8'>
-          
-          {/* Welcome Section */}
-          <div className='bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-8 mb-8 text-white shadow-lg'>
-            <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-sm font-medium
+          ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`}>
+          <CheckCircle size={18} /> {toast.message}
+        </div>
+      )}
+
+      <div className="mt-20 min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
+        <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+
+          {/* Welcome Banner */}
+          <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-8 text-white shadow-lg">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className='text-3xl font-bold mb-2'>Welcome back, {userData.name}! 👋</h1>
-                <p className='text-green-100 text-lg flex items-center gap-2'>
-                  <Sun size={20} />
-                  {userData.accountType}
+                <h1 className="text-3xl font-bold mb-2">
+                  Welcome back, {profile?.name || user.name || 'Prosumer'}! 👋
+                </h1>
+                <p className="text-green-100 text-base flex items-center gap-2">
+                  <Sun size={18} />
+                  {profile?.energySource || 'Solar'} Prosumer
                 </p>
-                <p className='text-green-100 mt-2'>
-                  {currentTime.toLocaleDateString('en-IN', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+                <p className="text-green-100 mt-1 text-sm font-mono">
+                  {currentTime.toLocaleDateString('en-IN', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
                   })} • {currentTime.toLocaleTimeString('en-IN')}
                 </p>
               </div>
-              <div className='flex gap-3'>
-                <Link 
-                  to='/prosumer/create-listing'
-                  className='bg-white text-green-600 px-6 py-3 rounded-lg font-semibold hover:bg-green-50 transition-all shadow-md flex items-center gap-2'
-                >
-                  <Plus size={20} />
-                  Sell Energy
+              <div className="flex items-center gap-3 flex-wrap">
+                <button onClick={fetchAll}
+                  className="bg-white/20 hover:bg-white/30 text-white px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition">
+                  <RefreshCw size={16} /> Refresh
+                </button>
+                <Link to="/prosumer/listings"
+                  className="bg-white text-green-600 px-5 py-2.5 rounded-xl font-semibold hover:bg-green-50 transition shadow-md flex items-center gap-2 text-sm">
+                  <Plus size={18} /> Sell Energy
                 </Link>
-                <Link 
-                  to='/prosumer/marketplace'
-                  className='bg-green-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-900 transition-all shadow-md flex items-center gap-2'
-                >
-                  <ShoppingCart size={20} />
-                  Buy Energy
+                <Link to="/prosumer/market"
+                  className="bg-green-800 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-green-900 transition shadow-md flex items-center gap-2 text-sm">
+                  <ShoppingCart size={18} /> Buy Energy
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* Primary Stats Grid - Production & Consumption */}
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-8'>
-            {/* Production Card */}
-            <div className='bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 shadow-md text-white'>
-              <div className='flex items-center justify-between mb-4'>
-                <h3 className='text-lg font-semibold flex items-center gap-2'>
-                  <Upload size={20} />
-                  Energy Production
-                </h3>
-                <span className='text-xs bg-white/20 px-3 py-1 rounded-full'>Live</span>
-              </div>
-              
-              <div className='grid grid-cols-2 gap-4 mb-4'>
-                <div>
-                  <p className='text-green-100 text-sm mb-1'>Current Output</p>
-                  <p className='text-3xl font-bold'>{userData.currentProduction} <span className='text-lg'>kW</span></p>
-                </div>
-                <div>
-                  <p className='text-green-100 text-sm mb-1'>Surplus</p>
-                  <p className='text-3xl font-bold'>{userData.surplus} <span className='text-lg'>kWh</span></p>
-                </div>
-              </div>
+          {/* Production & Consumption Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-              <div className='border-t border-white/20 pt-4 grid grid-cols-2 gap-4'>
+            {/* Selling / Production */}
+            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-6 shadow-sm text-white">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <Upload size={18} /> Energy Sales
+                </h3>
+                <span className="text-xs bg-white/20 px-3 py-1 rounded-full">
+                  {activeListings.length} active listings
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p className='text-green-100 text-xs mb-1'>Total Produced</p>
-                  <p className='text-xl font-semibold'>{userData.totalProduced} kWh</p>
+                  <p className="text-green-100 text-xs mb-1">Total kWh Sold</p>
+                  <p className="text-3xl font-bold">
+                    {totalKwhSold} <span className="text-lg font-normal">kWh</span>
+                  </p>
                 </div>
                 <div>
-                  <p className='text-green-100 text-xs mb-1'>Total Sold</p>
-                  <p className='text-xl font-semibold'>{userData.totalSold} kWh</p>
+                  <p className="text-green-100 text-xs mb-1">Total Earned</p>
+                  <p className="text-3xl font-bold">
+                    ₹{totalEarned.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+              <div className="border-t border-white/20 pt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-green-100 text-xs mb-1">Completed Trades</p>
+                  <p className="text-xl font-semibold">{salesTrades.length}</p>
+                </div>
+                <div>
+                  <p className="text-green-100 text-xs mb-1">Active Listings</p>
+                  <p className="text-xl font-semibold">{activeListings.length}</p>
                 </div>
               </div>
             </div>
 
-            {/* Consumption Card */}
-            <div className='bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 shadow-md text-white'>
-              <div className='flex items-center justify-between mb-4'>
-                <h3 className='text-lg font-semibold flex items-center gap-2'>
-                  <Download size={20} />
-                  Energy Consumption
+            {/* Buying / Consumption */}
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 shadow-sm text-white">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <Download size={18} /> Energy Purchases
                 </h3>
-                <span className='text-xs bg-white/20 px-3 py-1 rounded-full'>Live</span>
+                <span className="text-xs bg-white/20 px-3 py-1 rounded-full">
+                  {activeBids.length} active bids
+                </span>
               </div>
-              
-              <div className='grid grid-cols-2 gap-4 mb-4'>
+              <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p className='text-blue-100 text-sm mb-1'>Current Usage</p>
-                  <p className='text-3xl font-bold'>{userData.currentConsumption} <span className='text-lg'>kW</span></p>
+                  <p className="text-blue-100 text-xs mb-1">Total kWh Bought</p>
+                  <p className="text-3xl font-bold">
+                    {totalKwhBought} <span className="text-lg font-normal">kWh</span>
+                  </p>
                 </div>
                 <div>
-                  <p className='text-blue-100 text-sm mb-1'>Self-Sufficiency</p>
-                  <p className='text-3xl font-bold'>73<span className='text-lg'>%</span></p>
+                  <p className="text-blue-100 text-xs mb-1">Total Spent</p>
+                  <p className="text-3xl font-bold">
+                    ₹{totalSpent.toLocaleString('en-IN')}
+                  </p>
                 </div>
               </div>
-
-              <div className='border-t border-white/20 pt-4 grid grid-cols-2 gap-4'>
+              <div className="border-t border-white/20 pt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <p className='text-blue-100 text-xs mb-1'>From Own Source</p>
-                  <p className='text-xl font-semibold'>1,100 kWh</p>
+                  <p className="text-blue-100 text-xs mb-1">Completed Trades</p>
+                  <p className="text-xl font-semibold">{purchaseTrades.length}</p>
                 </div>
                 <div>
-                  <p className='text-blue-100 text-xs mb-1'>Purchased</p>
-                  <p className='text-xl font-semibold'>{userData.totalPurchased} kWh</p>
+                  <p className="text-blue-100 text-xs mb-1">Pending Bids</p>
+                  <p className="text-xl font-semibold">{activeBids.length}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Financial & Activity Stats */}
-          <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
-            {/* Earnings */}
-            <div className='bg-white rounded-xl p-6 shadow-md border border-green-100 hover:shadow-lg transition-shadow'>
-              <div className='flex items-center justify-between mb-4'>
-                <div className='bg-green-100 p-3 rounded-lg'>
-                  <TrendingUp className='text-green-600' size={24} />
-                </div>
+          {/* Financial Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-green-100 hover:shadow-md transition">
+              <div className="bg-green-100 p-3 rounded-xl w-fit mb-4">
+                <TrendingUp className="text-green-600" size={22} />
               </div>
-              <h3 className='text-gray-600 text-sm font-medium mb-1'>Total Earnings</h3>
-              <p className='text-2xl font-bold text-gray-800'>{userData.earnings}</p>
-              <p className='text-xs text-green-600 mt-2'>From energy sales</p>
+              <p className="text-gray-500 text-sm font-medium">Total Earnings</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">
+                ₹{totalEarned.toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-green-600 mt-2">From {salesTrades.length} sales</p>
             </div>
 
-            {/* Expenses */}
-            <div className='bg-white rounded-xl p-6 shadow-md border border-green-100 hover:shadow-lg transition-shadow'>
-              <div className='flex items-center justify-between mb-4'>
-                <div className='bg-red-100 p-3 rounded-lg'>
-                  <TrendingDown className='text-red-600' size={24} />
-                </div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-green-100 hover:shadow-md transition">
+              <div className="bg-red-100 p-3 rounded-xl w-fit mb-4">
+                <TrendingDown className="text-red-500" size={22} />
               </div>
-              <h3 className='text-gray-600 text-sm font-medium mb-1'>Total Expenses</h3>
-              <p className='text-2xl font-bold text-gray-800'>{userData.expenses}</p>
-              <p className='text-xs text-gray-500 mt-2'>Energy purchases</p>
+              <p className="text-gray-500 text-sm font-medium">Total Expenses</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">
+                ₹{totalSpent.toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-gray-400 mt-2">From {purchaseTrades.length} purchases</p>
             </div>
 
-            {/* Net Balance */}
-            <div className='bg-white rounded-xl p-6 shadow-md border border-green-100 hover:shadow-lg transition-shadow'>
-              <div className='flex items-center justify-between mb-4'>
-                <div className='bg-yellow-100 p-3 rounded-lg'>
-                  <DollarSign className='text-yellow-600' size={24} />
-                </div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-green-100 hover:shadow-md transition">
+              <div className="bg-yellow-100 p-3 rounded-xl w-fit mb-4">
+                <DollarSign className="text-yellow-600" size={22} />
               </div>
-              <h3 className='text-gray-600 text-sm font-medium mb-1'>Net Balance</h3>
-              <p className='text-2xl font-bold text-green-600'>{userData.netBalance}</p>
-              <p className='text-xs text-gray-500 mt-2'>This month</p>
+              <p className="text-gray-500 text-sm font-medium">Net Balance</p>
+              <p className={`text-2xl font-bold mt-1 ${netBalance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {netBalance >= 0 ? '+' : '-'}₹{Math.abs(netBalance).toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs text-gray-400 mt-2">Earnings minus expenses</p>
             </div>
 
-            {/* Active Transactions */}
-            <div className='bg-white rounded-xl p-6 shadow-md border border-green-100 hover:shadow-lg transition-shadow'>
-              <div className='flex items-center justify-between mb-4'>
-                <div className='bg-purple-100 p-3 rounded-lg'>
-                  <Activity className='text-purple-600' size={24} />
-                </div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-green-100 hover:shadow-md transition">
+              <div className="bg-purple-100 p-3 rounded-xl w-fit mb-4">
+                <Activity className="text-purple-600" size={22} />
               </div>
-              <h3 className='text-gray-600 text-sm font-medium mb-1'>Active Deals</h3>
-              <p className='text-2xl font-bold text-gray-800'>{userData.activeSales + userData.activePurchases}</p>
-              <p className='text-xs text-gray-500 mt-2'>{userData.completedTransactions} completed</p>
+              <p className="text-gray-500 text-sm font-medium">Active Deals</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">
+                {activeListings.length + activeBids.length}
+              </p>
+              <p className="text-xs text-gray-400 mt-2">{completedTrades} completed total</p>
             </div>
           </div>
 
-          {/* Tabs Section */}
-          <div className='bg-white rounded-xl shadow-md border border-green-100 mb-8'>
-            <div className='flex border-b border-gray-200'>
-              <button
-                onClick={() => setActiveTab('overview')}
-                className={`flex-1 py-4 px-6 font-semibold transition-colors ${
-                  activeTab === 'overview' 
-                    ? 'text-green-600 border-b-2 border-green-600' 
-                    : 'text-gray-600 hover:text-green-600'
-                }`}
-              >
-                Recent Transactions
-              </button>
-              <button
-                onClick={() => setActiveTab('selling')}
-                className={`flex-1 py-4 px-6 font-semibold transition-colors ${
-                  activeTab === 'selling' 
-                    ? 'text-green-600 border-b-2 border-green-600' 
-                    : 'text-gray-600 hover:text-green-600'
-                }`}
-              >
-                My Listings ({userData.activeSales})
-              </button>
-              <button
-                onClick={() => setActiveTab('buying')}
-                className={`flex-1 py-4 px-6 font-semibold transition-colors ${
-                  activeTab === 'buying' 
-                    ? 'text-green-600 border-b-2 border-green-600' 
-                    : 'text-gray-600 hover:text-green-600'
-                }`}
-              >
-                Marketplace
-              </button>
+          {/* Tabs */}
+          <div className="bg-white rounded-2xl shadow-sm border border-green-100">
+            <div className="flex border-b border-gray-100">
+              {[
+                { key: 'overview', label: 'Recent Trades' },
+                { key: 'selling',  label: `My Listings (${activeListings.length})` },
+                { key: 'buying',   label: 'Marketplace' },
+              ].map(tab => (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                  className={`flex-1 py-4 px-4 text-sm font-semibold transition-colors
+                    ${activeTab === tab.key
+                      ? 'text-green-600 border-b-2 border-green-600'
+                      : 'text-gray-500 hover:text-green-600'}`}>
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            <div className='p-6'>
-              {/* Recent Transactions Tab */}
+            <div className="p-6">
+
+              {/* ── Overview Tab ─────────────────────────────────── */}
               {activeTab === 'overview' && (
-                <div className='space-y-4'>
-                  {recentTransactions.map((txn) => (
-                    <div 
-                      key={txn.id}
-                      className='border border-gray-200 rounded-lg p-4 hover:border-green-300 hover:shadow-md transition-all'
-                    >
-                      <div className='flex flex-col md:flex-row md:items-center justify-between gap-3'>
-                        <div className='flex-1'>
-                          <div className='flex items-center gap-3 mb-2'>
-                            <div className={`p-2 rounded-lg ${txn.type === 'sale' ? 'bg-green-100' : 'bg-blue-100'}`}>
-                              {txn.type === 'sale' ? (
-                                <Upload className='text-green-600' size={16} />
-                              ) : (
-                                <Download className='text-blue-600' size={16} />
-                              )}
-                            </div>
-                            <div className='flex-1'>
-                              <div className='flex items-center gap-2 flex-wrap'>
-                                <span className='font-semibold text-gray-800'>{txn.party}</span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1 ${getStatusColor(txn.status)}`}>
-                                  {getStatusIcon(txn.status)} {txn.status}
-                                </span>
-                              </div>
-                            </div>
+                <div className="space-y-4">
+                  {allTrades.length === 0 ? (
+                    <div className="flex flex-col items-center py-12 text-center space-y-3">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <Zap size={22} className="text-green-500" />
+                      </div>
+                      <p className="text-gray-500 font-medium">No trades yet</p>
+                      <p className="text-gray-400 text-sm">
+                        Create a listing to start selling, or browse the marketplace to buy
+                      </p>
+                    </div>
+                  ) : allTrades.map(trade => (
+                    <div key={trade._id}
+                      className="border border-gray-100 rounded-xl p-4 hover:border-green-200 hover:shadow-sm transition">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-xl flex-shrink-0 ${trade.tradeType === 'sale' ? 'bg-green-100' : 'bg-blue-100'}`}>
+                            {trade.tradeType === 'sale'
+                              ? <Upload className="text-green-600" size={16} />
+                              : <Download className="text-blue-600" size={16} />}
                           </div>
-                          <p className='text-sm text-gray-600 ml-11'>Transaction ID: <span className='font-mono'>{txn.id}</span></p>
-                          <div className='flex items-center gap-4 mt-2 text-sm ml-11'>
-                            <span className={`font-semibold ${txn.type === 'sale' ? 'text-green-600' : 'text-blue-600'}`}>
-                              {txn.type === 'sale' ? '↑' : '↓'} {txn.amount}
-                            </span>
-                            <span className='text-gray-400'>•</span>
-                            <span className='text-gray-600'>{txn.date}</span>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-800 text-sm capitalize">
+                                {trade.tradeType === 'sale' ? 'Sold' : 'Bought'} {trade.energySource} Energy
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusStyle(trade.status)}`}>
+                                {getStatusIcon(trade.status)} {trade.status.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-400 font-mono mt-0.5">
+                              #{trade._id.slice(-8).toUpperCase()} • Auction #{trade.auctionRound}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                              <span>{trade.quantity} kWh @ ₹{trade.clearingPrice}/kWh</span>
+                              <span className="text-gray-300">•</span>
+                              <span>
+                                {new Date(trade.createdAt).toLocaleDateString('en-IN', {
+                                  day: '2-digit', month: 'short'
+                                })}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <div className='text-right'>
-                          <p className={`text-2xl font-bold ${txn.type === 'sale' ? 'text-green-600' : 'text-blue-600'}`}>
-                            {txn.type === 'sale' ? '+' : '-'}{txn.price}
+                        <div className="text-right flex-shrink-0">
+                          <p className={`text-xl font-bold ${trade.tradeType === 'sale' ? 'text-green-600' : 'text-blue-600'}`}>
+                            {trade.tradeType === 'sale' ? '+' : '-'}₹{trade.totalAmount.toLocaleString('en-IN')}
                           </p>
-                          <p className='text-xs text-gray-500'>{txn.type === 'sale' ? 'Earned' : 'Spent'}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {trade.tradeType === 'sale' ? 'earned' : 'spent'}
+                          </p>
                         </div>
                       </div>
                     </div>
                   ))}
-                  <div className='text-center pt-4'>
-                    <Link 
-                      to='/prosumer/transactions'
-                      className='text-green-600 hover:text-green-700 font-semibold inline-flex items-center gap-2'
-                    >
-                      View All Transactions <ArrowRight size={18} />
+
+                  <div className="text-center pt-2">
+                    <Link to="/prosumer/transactions"
+                      className="text-green-600 hover:text-green-700 text-sm font-semibold inline-flex items-center gap-1">
+                      View All Transactions <ArrowRight size={15} />
                     </Link>
                   </div>
                 </div>
               )}
 
-              {/* My Listings Tab */}
+              {/* ── My Listings Tab ───────────────────────────────── */}
               {activeTab === 'selling' && (
-                <div className='space-y-4'>
-                  <div className='flex justify-between items-center mb-4'>
-                    <h3 className='text-lg font-semibold text-gray-800'>Your Energy Listings</h3>
-                    <Link 
-                      to='/prosumer/create-listing'
-                      className='bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2'
-                    >
-                      <Plus size={18} />
-                      Create New Listing
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-800">Your Energy Listings</h3>
+                    <Link to="/prosumer/listings"
+                      className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-700 transition flex items-center gap-2">
+                      <Plus size={16} /> New Listing
                     </Link>
                   </div>
-                  {myListings.map((listing) => (
-                    <div 
-                      key={listing.id}
-                      className='border border-gray-200 rounded-lg p-4 hover:border-green-300 hover:shadow-md transition-all'
-                    >
-                      <div className='flex flex-col md:flex-row md:items-center justify-between gap-3'>
-                        <div className='flex-1'>
-                          <div className='flex items-center gap-2 mb-2'>
-                            <span className='font-semibold text-gray-800'>{listing.amount}</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1 ${getStatusColor(listing.status)}`}>
-                              {getStatusIcon(listing.status)}
-                              {listing.status}
+
+                  {myListings.length === 0 ? (
+                    <div className="flex flex-col items-center py-10 text-center space-y-3">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <Upload size={22} className="text-green-500" />
+                      </div>
+                      <p className="text-gray-500 font-medium">No listings yet</p>
+                      <Link to="/prosumer/listings"
+                        className="text-sm font-semibold text-green-600 hover:text-green-700 flex items-center gap-1">
+                        Create your first listing <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  ) : myListings.map(listing => (
+                    <div key={listing._id}
+                      className="border border-gray-100 rounded-xl p-4 hover:border-green-200 hover:shadow-sm transition">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-gray-800">
+                              {listing.energySource} Energy — {listing.quantity} kWh
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusStyle(listing.status)}`}>
+                              {getStatusIcon(listing.status)} {listing.status.replace('_', ' ')}
                             </span>
                           </div>
-                          <p className='text-sm text-gray-600'>Listing ID: <span className='font-mono'>{listing.id}</span></p>
-                          <div className='flex items-center gap-4 mt-2 text-sm'>
-                            <span className='text-green-600 font-semibold'>{listing.price}</span>
-                            <span className='text-gray-400'>•</span>
-                            <span className='flex items-center gap-1 text-gray-600'>
-                              <Eye size={14} />
-                              {listing.views} views
-                            </span>
-                            <span className='text-gray-400'>•</span>
-                            <span className='text-gray-600'>{listing.date}</span>
+                          <p className="text-xs text-gray-400 font-mono mt-0.5">
+                            #{listing._id.slice(-8).toUpperCase()} • {listing.location || 'No location'}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                            <span>Ask: ₹{listing.pricePerUnit}/kWh</span>
+                            <span className="text-gray-300">•</span>
+                            <span>Floor: ₹{listing.minPricePerUnit}/kWh</span>
+                            <span className="text-gray-300">•</span>
+                            <span>{listing.remainingQty} kWh remaining</span>
+                          </div>
+                          {/* Progress bar */}
+                          <div className="mt-2 w-48">
+                            <div className="w-full bg-gray-100 rounded-full h-1.5">
+                              <div className="bg-green-500 h-1.5 rounded-full"
+                                style={{ width: `${((listing.quantity - listing.remainingQty) / listing.quantity) * 100}%` }} />
+                            </div>
                           </div>
                         </div>
-                        <div className='flex items-center gap-3'>
-                          <div className='text-right mr-4'>
-                            <p className='text-sm text-gray-600'>Total Value</p>
-                            <p className='text-2xl font-bold text-gray-800'>{listing.total}</p>
-                          </div>
-                          {listing.status === 'Active' && (
-                            <button className='bg-gray-100 hover:bg-gray-200 p-2 rounded-lg transition-colors'>
-                              <Edit size={20} className='text-gray-600' />
-                            </button>
-                          )}
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xl font-bold text-gray-800">
+                            ₹{(listing.pricePerUnit * listing.quantity).toLocaleString('en-IN')}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">total value</p>
+                          <p className="text-xs text-green-600 mt-1">
+                            ₹{(listing.totalEarned || 0).toLocaleString('en-IN')} earned
+                          </p>
                         </div>
                       </div>
                     </div>
                   ))}
+
+                  {myListings.length > 0 && (
+                    <div className="text-center pt-2">
+                      <Link to="/prosumer/listings"
+                        className="text-green-600 hover:text-green-700 text-sm font-semibold inline-flex items-center gap-1">
+                        Manage All Listings <ArrowRight size={15} />
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Marketplace Tab */}
+              {/* ── Marketplace Tab ───────────────────────────────── */}
               {activeTab === 'buying' && (
                 <div>
-                  <h3 className='text-lg font-semibold text-gray-800 mb-4'>Available Energy from Other Prosumers</h3>
-                  <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-                    {marketplaceOffers.map((offer) => (
-                      <div 
-                        key={offer.id}
-                        className='border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-green-300 transition-all group'
-                      >
-                        <div className='relative h-48 overflow-hidden'>
-                          <img 
-                            src={offer.image} 
-                            alt={offer.seller}
-                            className='w-full h-full object-cover group-hover:scale-110 transition-transform duration-300'
-                          />
-                          <div className='absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-sm font-semibold text-green-600'>
-                            {offer.type}
-                          </div>
-                        </div>
-                        
-                        <div className='p-4'>
-                          <h3 className='font-bold text-gray-800 mb-2'>{offer.seller}</h3>
-                          <div className='flex items-center gap-1 mb-3'>
-                            <div className='flex'>
-                              {[...Array(5)].map((_, i) => (
-                                <svg 
-                                  key={i}
-                                  className={`w-4 h-4 ${i < Math.floor(offer.rating) ? 'text-yellow-400' : 'text-gray-300'}`}
-                                  fill='currentColor'
-                                  viewBox='0 0 20 20'
-                                >
-                                  <path d='M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z' />
-                                </svg>
-                              ))}
-                            </div>
-                            <span className='text-sm text-gray-600 ml-1'>{offer.rating}</span>
-                          </div>
-                          
-                          <div className='flex items-center justify-between mb-4'>
-                            <div>
-                              <p className='text-sm text-gray-600'>Available</p>
-                              <p className='font-semibold text-gray-800'>{offer.available}</p>
-                            </div>
-                            <div className='text-right'>
-                              <p className='text-sm text-gray-600'>Price</p>
-                              <p className='font-bold text-green-600'>{offer.price}</p>
-                            </div>
-                          </div>
+                  <h3 className="font-semibold text-gray-800 mb-4">
+                    Available from Other Prosumers
+                  </h3>
 
-                          <Link 
-                            to='/prosumer/marketplace'
-                            className='w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2'
-                          >
-                            Buy Now
-                            <ArrowRight size={16} />
-                          </Link>
-                        </div>
+                  {featuredListings.length === 0 ? (
+                    <div className="flex flex-col items-center py-10 text-center space-y-3">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <ShoppingCart size={22} className="text-green-500" />
                       </div>
-                    ))}
-                  </div>
-                  <div className='text-center mt-6'>
-                    <Link 
-                      to='/prosumer/marketplace'
-                      className='text-green-600 hover:text-green-700 font-semibold inline-flex items-center gap-2'
-                    >
-                      Browse Full Marketplace <ArrowRight size={18} />
+                      <p className="text-gray-500 font-medium">No listings from others right now</p>
+                      <p className="text-gray-400 text-sm">Check back after the next auction round</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {featuredListings.map(listing => (
+                        <div key={listing._id}
+                          className="border border-gray-100 rounded-2xl overflow-hidden hover:shadow-lg hover:border-green-200 transition group">
+                          <div className="relative h-44 overflow-hidden bg-green-50">
+                            <img
+                              src={SOURCE_IMAGES[listing.energySource] || SOURCE_IMAGES.Solar}
+                              alt={listing.energySource}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-3 right-3 bg-white px-2.5 py-1 rounded-full text-xs font-semibold text-green-600 shadow-sm">
+                              {listing.energySource}
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <h3 className="font-bold text-gray-800 text-sm mb-0.5">
+                              {listing.prosumerName || 'Prosumer'}
+                            </h3>
+                            <p className="text-xs text-gray-400 mb-3">{listing.location || 'India'}</p>
+                            <div className="flex items-center justify-between mb-4">
+                              <div>
+                                <p className="text-xs text-gray-400">Available</p>
+                                <p className="font-semibold text-gray-800 text-sm">{listing.remainingQty} kWh</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-400">Ask Price</p>
+                                <p className="font-bold text-green-600">₹{listing.pricePerUnit}/kWh</p>
+                              </div>
+                            </div>
+                            <Link to="/prosumer/market"
+                              className="w-full bg-green-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2">
+                              Place Bid <ArrowRight size={14} />
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-center mt-5">
+                    <Link to="/prosumer/market"
+                      className="text-green-600 hover:text-green-700 text-sm font-semibold inline-flex items-center gap-1">
+                      Browse Full Marketplace <ArrowRight size={15} />
                     </Link>
                   </div>
                 </div>
@@ -557,48 +575,40 @@ const ProsumerHome = () => {
             </div>
           </div>
 
-          {/* Environmental Impact Card */}
-          <div className='bg-gradient-to-br from-green-600 to-green-700 rounded-xl shadow-md p-6 text-white'>
-            <h2 className='text-xl font-bold mb-6 flex items-center gap-2'>
-              <Battery size={24} />
-              Your Environmental Impact
+          {/* Environmental Impact */}
+          <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl shadow-sm p-6 text-white">
+            <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
+              <Battery size={22} /> Your Environmental Impact
             </h2>
-            
-            <div className='grid grid-cols-1 md:grid-cols-4 gap-6'>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <div>
-                <div className='bg-white/20 p-3 rounded-lg w-fit mb-3'>
-                  <TrendingDown size={24} />
+                <div className="bg-white/20 p-3 rounded-xl w-fit mb-3">
+                  <TrendingDown size={22} />
                 </div>
-                <p className='text-sm text-green-100 mb-1'>Carbon Offset</p>
-                <p className='text-3xl font-bold'>{userData.carbonOffset} kg</p>
-                <p className='text-xs text-green-100 mt-1'>CO₂ prevented</p>
+                <p className="text-xs text-green-100 mb-1">Carbon Offset</p>
+                <p className="text-3xl font-bold">{carbonOffset} <span className="text-lg font-normal">kg</span></p>
+                <p className="text-xs text-green-100 mt-1">CO₂ prevented</p>
               </div>
-
               <div>
-                <div className='bg-white/20 p-3 rounded-lg w-fit mb-3'>
-                  <Sun size={24} />
+                <div className="bg-white/20 p-3 rounded-xl w-fit mb-3">
+                  <Sun size={22} />
                 </div>
-                <p className='text-sm text-green-100 mb-1'>Clean Energy</p>
-                <p className='text-3xl font-bold'>100%</p>
-                <p className='text-xs text-green-100 mt-1'>Renewable source</p>
+                <p className="text-xs text-green-100 mb-1">Clean Energy Sold</p>
+                <p className="text-3xl font-bold">{totalKwhSold} <span className="text-lg font-normal">kWh</span></p>
+                <p className="text-xs text-green-100 mt-1">Renewable supplied</p>
               </div>
-
               <div>
-                <div className='bg-white/20 p-3 rounded-lg w-fit mb-3'>
-                  <Battery size={24} />
+                <div className="bg-white/20 p-3 rounded-xl w-fit mb-3">
+                  <Zap size={22} />
                 </div>
-                <p className='text-sm text-green-100 mb-1'>Self-Sufficiency</p>
-                <p className='text-3xl font-bold'>73%</p>
-                <p className='text-xs text-green-100 mt-1'>Independence rate</p>
+                <p className="text-xs text-green-100 mb-1">Completed Trades</p>
+                <p className="text-3xl font-bold">{completedTrades}</p>
+                <p className="text-xs text-green-100 mt-1">Across buy & sell</p>
               </div>
-
-              <div className='flex items-center'>
-                <Link 
-                  to='/prosumer/analytics'
-                  className='w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:bg-green-50 transition-colors flex items-center justify-center gap-2'
-                >
-                  View Detailed Analytics
-                  <ArrowRight size={18} />
+              <div className="flex items-center">
+                <Link to="/prosumer/transactions"
+                  className="w-full bg-white text-green-600 py-3 rounded-xl font-semibold hover:bg-green-50 transition flex items-center justify-center gap-2 text-sm">
+                  View Analytics <ArrowRight size={16} />
                 </Link>
               </div>
             </div>
@@ -609,5 +619,3 @@ const ProsumerHome = () => {
     </>
   )
 }
-
-export default ProsumerHome

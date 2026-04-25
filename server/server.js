@@ -1,55 +1,41 @@
-const dns = require("node:dns");
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
+const express  = require('express')
+const mongoose = require('mongoose')
+const cors     = require('cors')
+const http     = require('http')           // ← ADD
+require('dotenv').config()
 
+const dns = require('node:dns')
+dns.setServers(['1.1.1.1', '8.8.8.8'])
 
-const app = express();
-const port = 5000;
+const app    = express()
+const server = http.createServer(app)       // ← wrap express in http
 
-// Middleware
-app.use(express.json());
-app.use(cors());
+// ── Init Socket.IO ───────────────────────────────────────────
+const { initSocket } = require('./socket')
+initSocket(server)                          // ← pass http server
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log("✅ MongoDB connected successfully"))
-.catch((err) => console.error("❌ MongoDB connection error:", err));
+const port = process.env.PORT || 5000
 
-// Import Routes
-const authRoutes = require('./routes/AuthRoutes.js');
+app.use(express.json())
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000', credentials: true }))
 
-// Use Routes
-app.use('/', authRoutes);
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB error:', err))
 
-// Health Check Route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'GreenWave Energy Trading API is running',
-    version: '1.0.0',
-    timestamp: new Date().toISOString()
-  });
-});
+// Routes
+const authRoutes    = require('./routes/AuthRoutes')
+const listingRoutes = require('./routes/ListingRoutes')
+const bidRoutes     = require('./routes/BidRoutes')
+const tradeRoutes   = require('./routes/TradeRoutes')
 
-// 404 Handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+app.use('/', authRoutes)
+app.use('/listings', listingRoutes)
+app.use('/bids',     bidRoutes)
+app.use('/trades',   tradeRoutes)
 
-// Global Error Handling Middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(err.status || 500).json({ 
-    error: err.message || 'Something went wrong!' 
-  });
-});
+app.use((req, res) => res.status(404).json({ error: 'Route not found' }))
+app.use((err, req, res, next) => res.status(err.status || 500).json({ error: err.message }))
 
-// Start Server
-app.listen(port, () => {
-  console.log(`🚀 Server running on http://localhost:${port}`);
-});
+// ← use server.listen NOT app.listen
+server.listen(port, () => console.log(`🚀 Server running on http://localhost:${port}`))
