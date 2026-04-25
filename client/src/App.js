@@ -6,7 +6,6 @@ import AdminSignupPage from './components/AdminSignup';
 import ConsumerHome from './components/consumer/ConsumerHome';
 import ProsumerHome from './components/prosumer/ProsumerHome';
 import LandingPage from './components/LandingPage';
-import ConsumerNavbar from './components/consumer/ConsumerNavbar';
 import ConsumerProfile from './components/consumer/ConsumerProfile';
 import ProsumerProfile from './components/prosumer/ProsumerProfile';
 import ProsumerListing from './components/prosumer/ProsumerListing';
