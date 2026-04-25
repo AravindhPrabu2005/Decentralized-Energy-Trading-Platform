@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import axiosInstance from '../axiosInstance';
+import { useNavigate } from 'react-router-dom';
 
 export default function LoginPage() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -27,20 +26,41 @@ export default function LoginPage() {
       });
 
       if (response.data.success) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('isAdmin', response.data.user.isAdmin.toString());
+        const { token, user } = response.data;
 
-        if (response.data.user.isAdmin) {
-          window.location.href = '/prosumer/home';
+        // ✅ Save individual keys (for backward compat)
+        localStorage.setItem('token', token);
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userType', user.userType);
+        localStorage.setItem('userId', user.id);
+        localStorage.setItem('userName', user.name);
+        localStorage.setItem('userEmail', user.email);
+
+        // ✅ Save full user object — navbars read this for profile pic + name
+        localStorage.setItem('user', JSON.stringify({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          userType: user.userType,
+          profilePicture: user.profilePicture || null,
+          prosumerId: user.prosumerId || null,
+          consumerId: user.consumerId || null,
+        }));
+
+        // ✅ Route based on userType
+        if (user.userType === 'prosumer') {
+          navigate('/prosumer/home', { replace: true });
+        } else if (user.userType === 'consumer') {
+          navigate('/consumer/home', { replace: true });
         } else {
-          window.location.href = '/consumer/home';
+          setError('Invalid user type');
         }
       } else {
-        setError(response.data.message || 'Invalid credentials. Please try again.');
+        setError(response.data.error || 'Invalid credentials. Please try again.');
       }
     } catch (err) {
       console.error('Error logging in:', err);
-      setError(err.response?.data?.message || 'Unable to connect. Please check your connection.');
+      setError(err.response?.data?.error || 'Unable to connect. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -48,60 +68,32 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Professional Header */}
+      {/* Header */}
       <header className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 lg:px-10 py-4">
-          <a href="/" className="flex items-center gap-3 group">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm group-hover:shadow-md transition">
-              <span className="text-white font-bold text-lg">GX</span>
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-base font-bold text-gray-900 tracking-tight">
-                GreenWave
-              </span>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">
-                Energy Exchange
-              </span>
-            </div>
+          <a href="/">
+            <img src="/greenwave-logo.png" alt="GreenWave Logo" className="h-16 w-auto" />
           </a>
-
           <nav className="hidden md:flex items-center gap-2">
-            <a
-              href="/pricing"
-              className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition"
-            >
-              Pricing
-            </a>
-            <a
-              href="/about"
-              className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition"
-            >
-              About
-            </a>
+            <a href="/pricing" className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition">Pricing</a>
+            <a href="/about" className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition">About</a>
             <div className="w-px h-6 bg-gray-200 mx-2" />
-            <a
-              href="/prosumer/signup"
-              className="text-sm font-semibold text-white bg-green-500 hover:bg-green-600 px-5 py-2 rounded-full transition shadow-sm hover:shadow"
-            >
+            <a href="/prosumer/signup" className="text-sm font-semibold text-white bg-green-500 hover:bg-green-600 px-5 py-2 rounded-full transition shadow-sm hover:shadow">
               Get Started
             </a>
           </nav>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 lg:px-10 py-12 lg:py-20">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          
+
           {/* Left: Value Proposition */}
           <section className="space-y-8">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-full">
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs font-medium text-green-700">
-                2.4 MWh traded in the last hour
-              </span>
+              <span className="text-xs font-medium text-green-700">2.4 MWh traded in the last hour</span>
             </div>
-
             <div className="space-y-4">
               <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 leading-tight">
                 Access Your
@@ -111,7 +103,6 @@ export default function LoginPage() {
                 Monitor real-time energy trades, track transparent pricing, and manage your renewable energy participation—all from one secure platform.
               </p>
             </div>
-
             <div className="grid sm:grid-cols-2 gap-4 pt-4">
               <div className="flex items-start gap-3 p-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
@@ -124,7 +115,6 @@ export default function LoginPage() {
                   <p className="text-xs text-gray-500 mt-0.5">Live energy tracking</p>
                 </div>
               </div>
-
               <div className="flex items-start gap-3 p-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
                   <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,8 +127,6 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
-
-            {/* Trust Badges */}
             <div className="flex flex-wrap items-center gap-6 pt-6 border-t border-gray-100">
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -159,14 +147,9 @@ export default function LoginPage() {
           {/* Right: Login Form */}
           <section className="flex justify-center lg:justify-end">
             <div className="w-full max-w-md bg-white border border-gray-200/60 shadow-[0_20px_70px_rgba(0,0,0,0.08)] rounded-3xl p-8 space-y-6">
-              
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Welcome back
-                </h2>
-                <p className="text-sm text-gray-500 mt-2">
-                  Sign in to your GreenWave account to continue
-                </p>
+                <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
+                <p className="text-sm text-gray-500 mt-2">Sign in to your GreenWave account to continue</p>
               </div>
 
               {error && (
@@ -179,52 +162,28 @@ export default function LoginPage() {
               )}
 
               <form className="space-y-5" onSubmit={handleSubmit}>
-                
                 <div className="space-y-2">
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email address
-                  </label>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
                   <input
-                    id="email"
-                    type="email"
-                    name="email"
-                    placeholder="you@company.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    disabled={loading}
-                    autoComplete="email"
+                    id="email" type="email" name="email" placeholder="you@company.com"
+                    value={formData.email} onChange={handleChange} required disabled={loading} autoComplete="email"
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                      Password
-                    </label>
-                    <a href="/forgot-password" className="text-xs font-medium text-green-600 hover:text-green-700">
-                      Forgot?
-                    </a>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                    <a href="/forgot-password" className="text-xs font-medium text-green-600 hover:text-green-700">Forgot?</a>
                   </div>
                   <div className="relative">
                     <input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={handleChange}
-                      required
-                      disabled={loading}
-                      autoComplete="current-password"
+                      id="password" type={showPassword ? 'text' : 'password'} name="password" placeholder="••••••••"
+                      value={formData.password} onChange={handleChange} required disabled={loading} autoComplete="current-password"
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                    >
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                       {showPassword ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -239,11 +198,8 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading || !formData.email || !formData.password}
-                  className="w-full flex items-center justify-center gap-2 text-base font-semibold text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-xl px-4 py-3.5 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-sm"
-                >
+                <button type="submit" disabled={loading || !formData.email || !formData.password}
+                  className="w-full flex items-center justify-center gap-2 text-base font-semibold text-white bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-xl px-4 py-3.5 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                   {loading ? (
                     <>
                       <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -264,25 +220,19 @@ export default function LoginPage() {
               </form>
 
               <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200" />
-                </div>
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
                 <div className="relative flex justify-center text-xs">
                   <span className="px-3 bg-white text-gray-500">New to GreenWave?</span>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
-                <a
-                  href="/prosumer/signup"
-                  className="flex-1 text-center text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-100 px-4 py-2.5 rounded-xl transition"
-                >
+                <a href="/prosumer/signup"
+                  className="flex-1 text-center text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-100 px-4 py-2.5 rounded-xl transition">
                   Sign up as Prosumer
                 </a>
-                <a
-                  href="/consumer/signup"
-                  className="flex-1 text-center text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-4 py-2.5 rounded-xl transition"
-                >
+                <a href="/consumer/signup"
+                  className="flex-1 text-center text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-4 py-2.5 rounded-xl transition">
                   Sign up as Consumer
                 </a>
               </div>
@@ -295,7 +245,7 @@ export default function LoginPage() {
       <footer className="border-t border-gray-100 mt-20">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-            <p>© 2025 GreenWave Energy Exchange. All rights reserved.</p>
+            <p>© 2026 GreenWave Energy Exchange. All rights reserved.</p>
             <div className="flex gap-6">
               <a href="/privacy" className="hover:text-gray-700 transition">Privacy</a>
               <a href="/terms" className="hover:text-gray-700 transition">Terms</a>
